@@ -1,5 +1,5 @@
 {
-  "193957589308932097": {
+  "193957589308932097zz": {
     "phone": "8177890010",
     "carrier_gateway": "@tmomail.net",
     "name": "joel"
@@ -36,12 +36,16 @@
   },
   "217449157189697536": {
     "phone": "6822630611",
-    "carrier_gateway": "",
+    "carrier_gateway": "@txt.att.net",
     "name": "collin"
   },
   "475108170553884682": {
     "phone": "9097368896",
     "carrier_gateway": "",
     "name": "soetan"
+  },
+  "193957589308932097": {
+    "phone": "8177890010",
+    "carrier_gateway": "@tmomail.net"
   }
 }
