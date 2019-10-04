@@ -64,8 +64,8 @@ async def on_message(message):
                         await channel.send('This user does not have a complete sms profile on file. Users can add a carrier to their profiles with the $carrier command.')
                         return
         except asyncio.TimeoutError:
-            await channel.send("Guess i will just go fuck myself")
-    elif bool(any(t in mentioned_users_str for t in profiles.keys())) == False:
+            await channel.send("You took too long to reply.")  
+    elif bool(any(t in mentioned_users_str for t in profiles.keys())) != False and len(mentioned_users_str) >= 18:
         await channel.send("Mentioned user(s) do not have text notifications setup. Encourage them to setup a profile with the $carrier command!")
     elif message.content.startswith('$carrier'):
         with open("anastasia\\data\\carrier_info.json") as carrier_info_json:
