@@ -1,18 +1,24 @@
 import logging
 import os
 import discord
-import importlib
 import json
 import asyncio
 
 from cmc_price import cmc_quote
 from discord.ext import commands
 from dotenv import load_dotenv
-from data import sms_info
 from sms_on_mention import send_text
 
+
+# load discord token from env file
 load_dotenv()
-token = os.getenv("DISCORD_TOKEN")
+TOKEN = os.getenv("DISCORD_TOKEN")
+
+# path variables
+# USER_INFO = "/home/pi/anastasia-bot/anastasia/data/user_info.json"
+# CARRIER_INFO_FILE = "/home/pi/anastasia-bot/anastasia/data/carrier_info.json"
+USER_INFO = r"C:\Projects\Anastasia-bot-master\anastasia\data\user_info.json"
+CARRIER_INFO_FILE = r"C:\Projects\Anastasia-bot-master\anastasia\data\carrier_info.json"
 
 # record logging info to a file
 logger = logging.getLogger('discord')
@@ -39,47 +45,61 @@ async def get_price(ctx, arg):
 @bot.event
 async def on_message(message):
     channel = message.channel
-    with open("anastasia\\data\\user_info.json") as users_info_json:
+    # Opens the user profiles and defines listening*(?) variables set by messages in chat
+    with open(USER_INFO) as users_info_json:
         profiles = json.load(users_info_json)
     mentioned_users_int = message.raw_mentions
     mentioned_users_str = str(message.raw_mentions)
     await bot.process_commands(message)
     if message.author == bot.user:
         return
-    elif bool(any(t in mentioned_users_str for t in profiles.keys())) == True:
+    # checks chat if a @mentioned user has a profile setup for the bot to text
+    elif bool(any(t in mentioned_users_str for t in profiles.keys())):
         try:
             await channel.send("Would you also like to text this person(s)? Type yes if so.")
 
+            # Checks for a yes or no in reply to the question asked
             def check_for_yes(m):
-                return m.content == 'yes' and m.channel == channel
+                return m.content.lower() == 'yes' and m.channel == channel
+            def check_for_no(m):
+                return m.content.lower() == 'no' and m.channel == channel
+            yes_msg = await bot.wait_for('message', check=check_for_yes, timeout=15)
+            no_msg = await bot.wait_for('message', check=check_for_no, timeout=15)
 
-            msg = await bot.wait_for('message', check=check_for_yes, timeout=15)
-            if msg is not None:
+            if yes_msg is not None:
                 for user in mentioned_users_int:
                     if profiles[str(user)]['carrier_gateway'] is not "":
                         send_text(profiles[str(user)]['phone'], profiles[str(user)]['carrier_gateway'], message.clean_content)
                         await channel.send('Sent text!')
                         return
                     else:
-                        await channel.send('This user does not have a complete sms profile on file. Users can add a carrier to their profiles with the $carrier command.')
+                        await channel.send('This user does not have a complete sms profile on file. Users can add a carrier to their profiles with the $carrier command, which allows them to receive texts when someone mentions them in the channel.')
                         return
+            elif no_msg is not None:
+                await channel.send("Fine.")
+                return
         except asyncio.TimeoutError:
-            await channel.send("You took too long to reply.")  
-    elif bool(any(t in mentioned_users_str for t in profiles.keys())) != False and len(mentioned_users_str) >= 18:
-        await channel.send("Mentioned user(s) do not have text notifications setup. Encourage them to setup a profile with the $carrier command!")
+            await channel.send("...")
+    # Reponse when the mentioned user doesn't have a user profile for the bot to text. 
+    elif bool(any(t in mentioned_users_str for t in profiles.keys())) == False and len(mentioned_users_str) >= 18:
+        await channel.send("Mentioned user(s) do not have text notifications setup. Encourage them to setup a profile with the $carrier command, which allows them to receive texts when someone mentions them in the channel.")
+    # Begins the user profile setup
     elif message.content.startswith('$carrier'):
-        with open("anastasia\\data\\carrier_info.json") as carrier_info_json:
+        with open(CARRIER_INFO_FILE) as carrier_info_json:
             carriers = json.load(carrier_info_json)
         command_user = str(message.author.id)
         if command_user not in profiles.keys():
             try:
-                await channel.send('I dont know who the fuck you are.. you will need to add a sms profile.  Is this something you wanna do right now? Type yes if so.')
+                await channel.send('Seems youre new here.  Would you like to proceed with account creation? Type yes or no.')
+                # these two checks make sure the person that replies is the person that originally used the carrier command
                 def check_for_yes_user_profile(m):
                     return m.content == 'yes' and m.channel == channel and command_user == str(message.author.id)
-
-                user_profile_answer = await bot.wait_for('message', check=check_for_yes_user_profile, timeout=30)
-                
-                if user_profile_answer.content is not None and len(user_profile_answer.content) <= 3:
+                def check_for_no_user_profile(m):
+                    return m.content == 'no' and m.channel == channel and command_user == str(message.author.id)
+                user_profile_answered_yes = await bot.wait_for('message', check=check_for_yes_user_profile, timeout=10)
+                user_profile_answered_no = await bot.wait_for('message', check=check_for_no_user_profile, timeout=10)
+                # this checks if the user answered yes to proceeding with user profile creation
+                if user_profile_answered_yes.content is not None and len(user_profile_answered_yes.content) <= 3:
                     await channel.send('Whats your phone number? Please reply with just the numbers, no dots or dashes and include the area code.')
                     def check_for_phone_number(m):
                         return bool(len(m.content) == 10) and m.channel == channel and command_user == str(message.author.id)
@@ -88,18 +108,18 @@ async def on_message(message):
                     
                     if phone_answer.content is not None and len(phone_answer.content) == 10:
                         profiles[command_user] = {'phone': phone_answer.content, 'carrier_gateway': ''}
-                        with open("anastasia\\data\\user_info.json", "w") as new_user_json:
+                        with open("/home/pi/anastasia-bot/anastasia/data/user_info.json", "w") as new_user_json:
                             json.dump(profiles, new_user_json, indent=2)
                         await channel.send('Phone number added!')
                         return
                     else:
                         return
-                else:
-                    return        
-            except asyncio.TimeoutError: # add more exceptions fucker
+                # the response from the bot if the user answers no to being asked if they would like to setup a user profile
+                elif user_profile_answered_no.content is not None and len(user_profile_answered_no.content) <= 3:
+                    await channel.send("Suit yourself.")
+                    return
+            except asyncio.TimeoutError:
                 await channel.send("You took too long to reply!")
-            finally:
-                return
         else:
             try:
                 number = 0
@@ -108,7 +128,7 @@ async def on_message(message):
                 for key in carriers.keys():
                     number += 1
                     carrier_list += "{}.{}\n".format(number,key)
-                embed.add_field(name="Pick a carrier below. Simply type the number!",value=carrier_list,inline=True)
+                embed.add_field(name="Pick a carrier below. Simply type the number!", value=carrier_list, inline=True)
                 await channel.send(embed=embed)
                 c_list = list(carriers)
                 max_range_list = len(c_list)
@@ -119,18 +139,13 @@ async def on_message(message):
                 carrier_answer = await bot.wait_for('message', check=check_for_carrier, timeout=30)
                 if carrier_answer.content is not None and len(carrier_answer.content) <= 3:
                     profiles[command_user]['carrier_gateway'] += carriers["{}".format(c_list[int(carrier_answer.content)-1])]
-                    with open("anastasia\\data\\user_info.json", "w") as user_json_file:
+                    with open("/home/pi/anastasia-bot/anastasia/data/user_info.json", "w") as user_json_file:
                         json.dump(profiles, user_json_file, indent=2)
                     await channel.send('Carrier added to your profile!')
                     return 
             except asyncio.TimeoutError:
                 await channel.send("You took too long!")
-            finally:
-                return
     else:
         return
-        
 
-
-
-bot.run(token)
+bot.run(TOKEN)
