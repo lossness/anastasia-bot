@@ -2,3 +2,12 @@
 discord.log
 *.log
 2015-01
+2015-01.db
+anastasia/__pycache__/sms_on_mention.cpython-37.pyc
+tests/pandas-test.py
+anastasia/reddit_ai/database_organizer.py
+anastasia/reddit_ai/ai.py
+anastasia/data/sms_info.py
+anastasia/data/user_info.json
+anastasia/data/steam_games.json
+
