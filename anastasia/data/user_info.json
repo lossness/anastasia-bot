@@ -1,51 +1,56 @@
 {
-  "193957589308932097zz": {
-    "phone": "8177890010",
-    "carrier_gateway": "@tmomail.net",
-    "name": "joel"
-  },
   "482038935732748306": {
     "phone": "9518336161",
     "carrier_gateway": "@vtext.com",
-    "name": "danielle"
+    "name": "danielle",
+    "steam_id": ""
   },
   "270330295759142912": {
     "phone": "9514159332",
-    "carrier_gateway": "",
-    "name": "brandon"
+    "carrier_gateway": "@tmomail.net",
+    "name": "brandon",
+    "steam_id": ""
   },
   "248673948844294146": {
     "phone": "9093151099",
-    "carrier_gateway": "",
-    "name": "josh"
+    "carrier_gateway": "@tmomail.net",
+    "name": "josh",
+    "steam_id": ""
   },
   "210873003972624384": {
     "phone": "9402064913",
-    "carrier_gateway": "",
-    "name": "taylor"
+    "carrier_gateway": "@vtext.com",
+    "name": "taylor",
+    "steam_id": "76561198000403243"
   },
   "352935828642725888": {
     "phone": "9514705878",
-    "carrier_gateway": "",
-    "name": "vic"
+    "carrier_gateway": "@txt.att.net",
+    "name": "vic",
+    "steam_id": ""
   },
   "123556418681831424": {
     "phone": "9515325555",
-    "carrier_gateway": "",
-    "name": "aaron"
+    "carrier_gateway": "@txt.att.net",
+    "name": "aaron",
+    "steam_id": ""
   },
   "217449157189697536": {
     "phone": "6822630611",
     "carrier_gateway": "@txt.att.net",
-    "name": "collin"
+    "name": "collin",
+    "steam_id": "76561198067041256"
   },
   "475108170553884682": {
     "phone": "9097368896",
-    "carrier_gateway": "",
+    "carrier_gateway": "@tmomail.net",
     "name": "soetan"
   },
-  "193957589308932097": {
-    "phone": "8177890010",
-    "carrier_gateway": "@tmomail.net"
+  "501306242418081812": {
+    "phone": "9514824579",
+    "carrier_gateway": "@messaging.sprintpcs.com",
+    "name": "danny",
+    "steam_id": "76561198865707288"
   }
+
 }
