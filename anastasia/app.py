@@ -21,7 +21,7 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 # CARRIER_INFO_FILE = "/home/pi/anastasia-bot/anastasia/data/carrier_info.json"
 USER_INFO = r"C:\Projects\Anastasia-bot-master\anastasia\data\user_info.json"
 CARRIER_INFO_FILE = r"C:\Projects\Anastasia-bot-master\anastasia\data\carrier_info.json"
-YES_FILE = r"C:\Projects\Anastasia-bot-master\anastasia\data\yes_words.csv"
+YES_FILE = r"C:\Projects\Anastasia-bot-master\anastasia\data\yes_word.txt"
 
 # record logging info to a file
 logger = logging.getLogger('discord')
@@ -29,6 +29,13 @@ logger.setLevel(logging.DEBUG)
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
 logger.addHandler(handler)
+
+# open json files
+with open(USER_INFO) as users_info_json:
+    PROFILES = json.load(users_info_json)
+
+with open(YES_FILE) as f:
+    YES_LIST = json.load(f)
 
 # bot commands must start with this char
 bot = commands.Bot(command_prefix='$')
@@ -38,6 +45,10 @@ THE_TIME = datetime.datetime.now()
 async def on_ready():
     print(f'{bot.user.name} has connected to Discord at {THE_TIME}!')
 
+@bot.event
+async def on_disconnect():
+    print(f'{bot.user.name} has disconnected from Discord at {THE_TIME}.')
+
 @bot.command(name='price', help='responds with current value of a given cryptocurrency')
 async def get_price(ctx, arg):
     response = cmc_quote(arg)
@@ -46,8 +57,8 @@ async def get_price(ctx, arg):
 @bot.event
 async def on_message(message):
     # required commands for on message
-    channel = message.channel
     await bot.process_commands(message)
+    channel = message.channel
     # checks if the the reply came from the same person that invoked the bot
     def check_is_author(msg):
         return msg.channel == channel and str(msg.author.id) == str(message.author.id)
@@ -55,36 +66,24 @@ async def on_message(message):
     # a check to see if the mentioned user has a phone number in their profile
     def check_for_phone_number(msg):
         return bool(len(msg.content) == 10) and msg.channel == channel and command_user == str(message.author.id)
-
-    # Opens the user profiles and defines listening*(?) variables set by messages in chat
-    with open(USER_INFO) as users_info_json:
-        profiles = json.load(users_info_json)
-    
-    yes_csv_file = open(YES_FILE, 'rt')
-    yes_reader = csv.reader(yes_csv_file, delimiter=",")
-    yes_list = list()
-    for row in yes_reader:
-        yes_list.append((row[0], row[1]))
-
-
-    
+  
     # cant remember why I did this.  Come back and edit when known
     mentioned_users_int = message.raw_mentions
     mentioned_users_str = str(message.raw_mentions)
     # checks chat if a @mentioned user has a profile setup for the bot to text
-    if bool(any(t in mentioned_users_str for t in profiles.keys())):
+    if bool(any(t in mentioned_users_str for t in PROFILES.keys())):
         try:
             await channel.send("Would you also like to text this person(s)? Type yes if so.")
             msg_reply = await bot.wait_for("message", check=check_is_author, timeout=15)
 
             if msg_reply:
-                if bool(any(t in msg_reply.content.lower() for t in yes_list)):
+                if bool(any(t in msg_reply.content.lower() for t in YES_LIST)):
                     for user in mentioned_users_int:
-                        if profiles[str(user)]['carrier_gateway'] is not "":
-                            send_text(profiles[str(user)]['phone'], profiles[str(user)]['carrier_gateway'], message.clean_content)
+                        if PROFILES[str(user)]['carrier_gateway'] is not "":
+                            send_text(PROFILES[str(user)]['phone'], PROFILES[str(user)]['carrier_gateway'], message.clean_content)
                             await channel.send('Sent text!')
                         else:
-                            await channel.send('This user does not have a complete sms profile on file. Users can add a carrier to their profiles with the $carrier command, which allows them to receive texts when someone mentions them in the channel.')
+                            await channel.send('This user does not have a complete sms profile on file. Users can add a carrier to their PROFILES with the $carrier command, which allows them to receive texts when someone mentions them in the channel.')
                 
                 elif msg_reply.content.lower() == 'no':
                     await channel.send("Fine.")
@@ -92,16 +91,25 @@ async def on_message(message):
         except asyncio.TimeoutError:
             await channel.send("...")
 
+@bot.listen()
+async def on_message(message):
+    channel = message.channel
     # Reponse when the mentioned user doesn't have a user profile for the bot to text. 
-    elif bool(any(t in mentioned_users_str for t in profiles.keys())) == False and len(mentioned_users_str) >= 18:
+    if not bool(any(t in mentioned_users_str for t in PROFILES.keys())) == False and len(mentioned_users_str) >= 18:
+        break
+    else:
         await channel.send("Mentioned user(s) do not have text notifications setup. Encourage them to setup a profile with the $carrier command, which allows them to receive texts when someone mentions them in the channel.")
 
+@bot.listen()
+async def on_message(message):
     # Begins the user profile setup
-    elif message.content.startswith('$carrier'):
+    if not message.content.startswith('$carrier'):
+        break
+    else:
         with open(CARRIER_INFO_FILE) as carrier_info_json:
             carriers = json.load(carrier_info_json)
         command_user = str(message.author.id)
-        if command_user not in profiles.keys():
+        if command_user not in PROFILES.keys():
             try:
                 await channel.send('Seems youre new here.  Would you like to proceed with account creation? Type yes or no.')
                 # this checks if the user answered yes to proceeding with user profile creation
@@ -110,9 +118,9 @@ async def on_message(message):
                     phone_answer = await bot.wait_for('message', check=check_for_phone_number, timeout=30)
                     
                     if phone_answer.content is not None and len(phone_answer.content) == 10:
-                        profiles[command_user] = {'phone': phone_answer.content, 'carrier_gateway': ''}
+                        PROFILES[command_user] = {'phone': phone_answer.content, 'carrier_gateway': ''}
                         with open(USER_INFO, "w") as new_user_json:
-                            json.dump(profiles, new_user_json, indent=2)
+                            json.dump(PROFILES, new_user_json, indent=2)
                         await channel.send('Phone number added!')
 
                 # the response from the bot if the user answers no to being asked if they would like to setup a user profile
@@ -144,14 +152,12 @@ async def on_message(message):
                 carrier_answer = await bot.wait_for('message', check=check_for_carrier, timeout=30)
 
                 if carrier_answer.content is not None and len(carrier_answer.content) <= 3:
-                    profiles[command_user]['carrier_gateway'] += carriers["{}".format(c_list[int(carrier_answer.content)-1])]
+                    PROFILES[command_user]['carrier_gateway'] += carriers["{}".format(c_list[int(carrier_answer.content)-1])]
                     with open(USER_INFO, "w") as user_json_file:
-                        json.dump(profiles, user_json_file, indent=2)
+                        json.dump(PROFILES, user_json_file, indent=2)
                     await channel.send('Carrier added to your profile!')
             except asyncio.TimeoutError:
                 await channel.send("You took too long!")
-    else:
-        return
 
 @bot.event
 async def on_command_error(ctx, error):
