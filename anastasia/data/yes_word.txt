@@ -1,0 +1,1 @@
+["yes", "yess", "yesss", "yas", "yass", "yasss", "yea", "yeaa", "yeaaa", "yup", "yupp", "yuppp", "sure", "suree", "sureee", "ye", "yee", "yeee", "yeeee", "yeeeee", "yeeeeee", "yeeeeeee", "yeah", "yeahh", "yeahhh", "hell yeah", "fuck yeah", "fuck yes", "fuck yea", "fuck ye", "fuck yee", "fuck yeee", "please", "pls"]
