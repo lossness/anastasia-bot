@@ -4,6 +4,7 @@ import discord
 import json
 import asyncio
 import datetime
+import pprint
 
 from cmc_price import cmc_quote
 from discord.ext import commands
@@ -63,69 +64,112 @@ async def get_price(ctx, arg):
 async def on_message(message):
     # required commands for on message
     channel = message.channel
+    await bot.process_commands(message)
     if message.author == bot.user:
         return
-    # checks if the the reply came from the same person that invoked the bot
+    # Multiple checks that are run agaisnt user replies
     def check_is_author(msg):
-        return msg.channel == channel and str(msg.author.id) == str(message.author.id) and bool(any(t in str(msg.raw_mentions) for t in PROFILES.keys()))
+        return msg.channel == channel and str(msg.author.id) == str(message.author.id) 
+
+    def check_for_profile(msg):
+        return bool(any(t in str(msg.raw_mentions) for t in PROFILES.keys()))
+
+    def check_for_yes(user_reply, yes_options):
+        return bool(any(t in user_reply.content.lower() for t in yes_options))
+
+    def check_for_no(user_reply):
+        return bool(user_reply.content.lower() == 'no')
   
     # cant remember why I did this.  Come back and edit when known
     mentioned_users_int = message.raw_mentions
 
     # checks chat if a @mentioned user has a profile setup for the bot to text
-    if message.author == bot.user:
+    if mentioned_users_int:
+        await channel.send("Would you also like to text this person(s)? Type yes if so.")
+        try:
+            msg_reply = await bot.wait_for("message", timeout=15)
+
+            if check_for_no(msg_reply):
+                await channel.send("Fine")
+
+            elif check_for_profile(message) is False and check_is_author(message) is True and check_for_yes(msg_reply, YES_LIST) is True:
+                await channel.send("This user does not have a texting profile setup.  They can setup with the $carrier command.")
+                return
+                
+            elif check_for_profile(message) and check_is_author(message) and msg_reply is not None:
+                if check_for_yes(msg_reply, YES_LIST):
+                    for user in mentioned_users_int:
+                        if PROFILES[str(user)]['carrier_gateway'] is not "":
+                            send_text(PROFILES[str(user)]['phone'], PROFILES[str(user)]['carrier_gateway'], message.clean_content)
+                            await channel.send('Sent text!')
+                            return
+                        else:
+                            await channel.send("This user does not have a complete texting profile setup. Setup can be access with the $carrier command.")
+                            return
+        except asyncio.TimeoutError:
+            await channel.send("...")
+    else:
         return
-    await channel.send("Would you also like to text this person(s)? Type yes if so.")
-    try:
-        msg_reply = await bot.wait_for("message", check=check_is_author, timeout=15)
-
-        if msg_reply:
-            if bool(any(t in msg_reply.content.lower() for t in YES_LIST)):
-                for user in mentioned_users_int:
-                    if PROFILES[str(user)]['carrier_gateway'] is not "":
-                        send_text(PROFILES[str(user)]['phone'], PROFILES[str(user)]['carrier_gateway'], message.clean_content)
-                        await channel.send('Sent text!')
-                    else:
-                        await channel.send('This user does not have a complete sms profile on file. Users can add a carrier to their PROFILES with the $carrier command, which allows them to receive texts when someone mentions them in the channel.')
-            
-            elif msg_reply.content.lower() == 'no':
-                await channel.send("Fine.")
-        else:
-            await channel.send("This user does not have a texting profile setup.  They can set one up with the $carrier command.")
-            return
-
-    except asyncio.TimeoutError:
-        await channel.send("...")
-    await bot.process_commands(message)
-
 
 
 @bot.command(name='carrier', help="This command starts the profile setup process to enable text messages on mention.")
 async def create_profile(ctx):
     message = ctx.message
     channel = message.channel
-    await bot.process_commands(message)
-     # a check to see if the mentioned user has a phone number in their profile
+
     def check_for_phone_number(msg):
         return bool(len(msg.content) == 10) and msg.channel == channel and str(msg.author.id) == str(message.author.id)
     
     def check_is_author(msg):
         return msg.channel == channel and str(msg.author.id) == str(message.author.id)
-  
+
+    def check_for_yes(user_reply):
+        yes_options = YES_LIST
+        return bool(any(t in user_reply.content.lower() for t in yes_options and str(user_reply.author.id == str(message.author.id))))
+
+    def check_for_no(user_reply):
+        return bool(user_reply.content.lower() == 'no')
+
+    async def check_for_valid_phone() -> bool:
+        counter = 0
+        await channel.send("Did you type that correctly?")
+        if counter <= 3:
+            try:
+                reply = await bot.wait_for('message', check=check_for_yes, timeout=15.0)
+                counter += 1
+                if reply:
+                    return True
+
+            except asyncio.TimeoutError:
+                await channel.send("You took too long, Goodbye.")
+
+        else:
+            await channel.send("Too many attempts, Goodbye.")
+            return False
+
+
+
+
     command_user = str(message.author.id)
+    await channel.send("This will setup or edit your texting profile. Would you like to continue? Type yes or no.")
     try:
-        msg_reply = await bot.wait_for("message", check=check_is_author, timeout=15)
-        if msg_reply:
-            if bool(any(t in msg_reply.content.lower() for t in YES_LIST)):
-                await channel.send('Whats your phone number? Please reply with just the numbers, no dots or dashes and include the area code.')
-                phone_answer = await bot.wait_for('message', check=check_for_phone_number, timeout=30)
-                
-                if phone_answer.content is not None and len(phone_answer.content) == 10:
-                    PROFILES[command_user] = {'phone': phone_answer.content, 'carrier_gateway': ''}
-                    with open(USER_INFO, "w") as new_user_json:
-                        json.dump(PROFILES, new_user_json, indent=2)
-                    await channel.send('Phone number added!')
-                    
+        msg_reply = await bot.wait_for("message", timeout=15)
+
+        if check_for_no(msg_reply):
+            await channel.send("Suit yourself.")
+            return
+
+        elif check_is_author(msg_reply) and check_for_yes(msg_reply):
+            await channel.send('Whats your phone number? Please reply with just the numbers, no dots or dashes and include the area code.')
+
+            phone_answer = await bot.wait_for('message', check=check_for_phone_number, timeout=30.0)
+            test = await check_for_valid_phone()
+            if test:
+                PROFILES[command_user] = {'phone': phone_answer.content, 'carrier_gateway': ''}
+                with open(USER_INFO, "w") as new_user_json:
+                    json.dump(PROFILES, new_user_json, indent=2)
+                await channel.send('Phone number added!')
+    
                 # has the user select their carrier from the list
                 number = 0
                 carrier_list = ""
@@ -147,10 +191,10 @@ async def create_profile(ctx):
                     PROFILES[command_user]['carrier_gateway'] += CARRIERS["{}".format(CARRIER_LIST[int(carrier_answer.content)-1])]
                     with open(USER_INFO, "w") as user_json_file:
                         json.dump(PROFILES, user_json_file, indent=2)
-                    await channel.send('Carrier added to your profile!')
-
-            elif msg_reply.content.lower() == 'no':
-                await channel.send("Suit yourself.")
+                    await channel.send('Carrier added to your profile! You are now ready to receive a text message when mentioned.')
+            
+            else:
+                await channel.send("Profile setup terminated.")
 
     except asyncio.TimeoutError:
         await channel.send("You took too long to reply!")
