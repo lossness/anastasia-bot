@@ -3,9 +3,13 @@ import json
 import os
 import random
 
+from dotenv import load_dotenv
 from requests import Session
 from requests.exceptions import ConnectionError, Timeout, TooManyRedirects
 
+
+load_dotenv()
+TOKEN = os.getenv("CMC_TOKEN")
 """
 this function searches a dict (including all nested dicts)
 for key / value pairs matching a list of keys you would like
@@ -43,7 +47,7 @@ def cmc_quote(crypto_name):
     }
     headers = {
         'Accepts': 'application/json',
-        'X-CMC_PRO_API_KEY': 'db92b1be-ab20-4767-8eed-6fbd38fe6d23',
+        'X-CMC_PRO_API_KEY': "{}".format(TOKEN),
     }
 
     session = Session()
