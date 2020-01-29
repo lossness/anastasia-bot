@@ -4,7 +4,6 @@ import discord
 import json
 import asyncio
 import datetime
-import pprint
 
 from cmc_price import cmc_quote
 from discord.ext import commands
@@ -74,37 +73,46 @@ async def on_message(message):
     def check_for_profile(msg):
         return bool(any(t in str(msg.raw_mentions) for t in PROFILES.keys()))
 
-    def check_for_yes(user_reply, yes_options):
-        return bool(any(t in user_reply.content.lower() for t in yes_options))
+    def check_for_yes(user_reply):
+        yes_options = YES_LIST
+        return (bool(any(t in user_reply.content.lower() for t in yes_options and
+                         str(user_reply.author.id == str(message.author.id)))))
 
     def check_for_no(user_reply):
         return bool(user_reply.content.lower() == 'no')
-  
+
     # cant remember why I did this.  Come back and edit when known
     mentioned_users_int = message.raw_mentions
 
     # checks chat if a @mentioned user has a profile setup for the bot to text
     if mentioned_users_int:
-        await channel.send("Would you also like to text this person(s)? Type yes if so.")
+        await channel.send("Would you also like to text this person(s)? Type yes or no.")
         try:
             msg_reply = await bot.wait_for("message", timeout=15)
 
             if check_for_no(msg_reply):
                 await channel.send("Fine")
 
-            elif check_for_profile(message) is False and check_is_author(message) is True and check_for_yes(msg_reply, YES_LIST) is True:
-                await channel.send("This user does not have a texting profile setup.  They can setup with the $carrier command.")
+            elif (check_for_profile(message) is False and check_is_author(message) is True and
+                  check_for_yes(msg_reply) is True):
+
+                await channel.send("This user does not have a texting profile setup."
+                                   "  They can setup with the $carrier command.")
                 return
-                
+
             elif check_for_profile(message) and check_is_author(message) and msg_reply is not None:
-                if check_for_yes(msg_reply, YES_LIST):
+                if check_for_yes(msg_reply):
                     for user in mentioned_users_int:
                         if PROFILES[str(user)]['carrier_gateway'] is not "":
-                            send_text(PROFILES[str(user)]['phone'], PROFILES[str(user)]['carrier_gateway'], message.clean_content)
+                            (send_text(PROFILES[str(user)]['phone'], 
+                                       PROFILES[str(user)]['carrier_gateway'],
+                                       message.clean_content))
                             await channel.send('Sent text!')
                             return
                         else:
-                            await channel.send("This user does not have a complete texting profile setup. Setup can be access with the $carrier command.")
+                            await channel.send("This user does not have a "
+                                               "complete texting profile setup. Setup "
+                                               "can be access with the $carrier command.")
                             return
         except asyncio.TimeoutError:
             await channel.send("...")
@@ -130,28 +138,34 @@ async def create_profile(ctx):
     def check_for_no(user_reply):
         return bool(user_reply.content.lower() == 'no')
 
+    class ContinueCounter(Exception):
+        pass
+
+    continue_counter = ContinueCounter
+
     async def check_for_valid_phone() -> bool:
-        counter = 0
         await channel.send("Did you type that correctly?")
-        if counter <= 3:
+        for i in range(3):
             try:
+                reply = None
                 reply = await bot.wait_for('message', check=check_for_yes, timeout=15.0)
-                counter += 1
                 if reply:
                     return True
-
+                elif reply is None:
+                    raise continue_counter
+            except ContinueCounter:
+                continue
             except asyncio.TimeoutError:
                 await channel.send("You took too long, Goodbye.")
-
+                break
         else:
             await channel.send("Too many attempts, Goodbye.")
             return False
 
 
-
-
     command_user = str(message.author.id)
-    await channel.send("This will setup or edit your texting profile. Would you like to continue? Type yes or no.")
+    await channel.send("This will setup or edit your texting profile. "
+                       "Would you like to continue? Type yes or no.")
     try:
         msg_reply = await bot.wait_for("message", timeout=15)
 
@@ -170,23 +184,28 @@ async def create_profile(ctx):
                     json.dump(PROFILES, new_user_json, indent=2)
                 await channel.send('Phone number added!')
     
-                # has the user select their carrier from the list
+                # define an empty int and list to add our values to
                 number = 0
                 carrier_list = ""
+                # this embed object will show the carrier list in an embed message in the channel
                 embed = discord.Embed()
 
+                # attaches a number to each carrier from our list
                 for key in CARRIERS.keys():
                     number += 1
                     carrier_list += "{}.{}\n".format(number, key)
-
+                # adds our numbered list to the embed object.  Sends object to channel
                 embed.add_field(name="Pick a carrier below. Simply type the number!", value=carrier_list, inline=True)
                 await channel.send(embed=embed)
-
+                
+                # this check will make sure to only create carrier_answer if the users response
+                # is a valid choice
                 def check_for_carrier(m):
                     return m.content in str(RANGE_LIST) and m.channel == channel
 
                 carrier_answer = await bot.wait_for('message', check=check_for_carrier, timeout=30)
 
+                # checks if carrier answer exists
                 if carrier_answer.content is not None and len(carrier_answer.content) <= 3:
                     PROFILES[command_user]['carrier_gateway'] += CARRIERS["{}".format(CARRIER_LIST[int(carrier_answer.content)-1])]
                     with open(USER_INFO, "w") as user_json_file:
