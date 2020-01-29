@@ -7,9 +7,10 @@ from dotenv import load_dotenv
 from requests import Session
 from requests.exceptions import ConnectionError, Timeout, TooManyRedirects
 
-
+# Load in secret key as a variable from .env file
 load_dotenv()
 TOKEN = os.getenv("CMC_TOKEN")
+
 """
 this function searches a dict (including all nested dicts)
 for key / value pairs matching a list of keys you would like
@@ -41,6 +42,8 @@ def find_key_value_pairs(q, keys, dicts=None):
 
 
 def cmc_quote(crypto_name):
+    # URL to fetch latest prices for cryptocurrencies. 
+    # plugs the API key into the headers for the request
     url = 'https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest'
     parameters = {
         'slug': crypto_name
@@ -62,13 +65,15 @@ def cmc_quote(crypto_name):
             string_price = ''.join(str(n) for n in tuple_price)
             return "$" + string_price.translate(translationtable)[:5]
 
-    except (ConnectionError, Timeout, TooManyRedirects) as e:
-        return(e + 'on quote data')
+    except (ConnectionError, Timeout, TooManyRedirects) as E:
+        return E + " on quote data"
 
-    finally:
+    else:
+        # checks if the user requested a invalid cryptocurrency
+        # and inserts a randomly chosen insult into the bots reply
+        # from a gigantic list of bad english words
         if response.status_code == 400:
-            with open(os.path.join("anastasia", "data", "bad-words.csv"), 'rU') as csvFile:
-                reader = csv.reader(csvFile)
+            with open(os.path.join("anastasia", "data", "bad-words.csv"), 'rU') as csv_file:
+                reader = csv.reader(csv_file)
                 chosen_word = random.choice(list(reader))
                 return "Thats not a cryptocurrency, you {}.".format(chosen_word[0])
-
