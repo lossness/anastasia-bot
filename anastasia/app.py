@@ -125,38 +125,63 @@ async def create_profile(ctx):
     message = ctx.message
     channel = message.channel
 
-    def check_for_phone_number(msg):
-        return bool(len(msg.content) == 10) and msg.channel == channel and str(msg.author.id) == str(message.author.id)
+    def check_valid_phone(msg):
+        return check_is_author(msg) and len(msg.content) == 10
     
     def check_is_author(msg):
         return msg.channel == channel and str(msg.author.id) == str(message.author.id)
 
-    def check_for_yes(user_reply):
+    def check_for_yes(msg):
         yes_options = YES_LIST
-        return bool(any(t in user_reply.content.lower() for t in yes_options and str(user_reply.author.id == str(message.author.id))))
+        return bool(any(t in msg.content.lower() for t in yes_options))
 
-    def check_for_no(user_reply):
-        return bool(user_reply.content.lower() == 'no')
+    def check_for_no(msg):
+        return bool(msg.content.lower() == 'no')
 
     class ContinueCounter(Exception):
         pass
 
     continue_counter = ContinueCounter
 
-    async def check_for_valid_phone() -> bool:
-        await channel.send("Did you type that correctly?")
+    async def check_input(prompt) -> bool:
+        await prompt
         for i in range(3):
             try:
                 reply = None
-                reply = await bot.wait_for('message', check=check_for_yes, timeout=15.0)
-                if reply:
+                reply = (await bot.wait_for(
+                    'message', check=check_for_yes, timeout=15.0))
+
+                if check_is_author(reply):
                     return True
                 elif reply is None:
                     raise continue_counter
+
             except ContinueCounter:
                 continue
             except asyncio.TimeoutError:
-                await channel.send("You took too long, Goodbye.")
+                await channel.send("You took too long, Goodbye.DEBUG=CHECK_INPUT")
+                break
+        else:
+            await channel.send("Too many attempts, Goodbye.")
+            return False
+
+    async def valid_phone(prompt) -> str or bool:
+        await prompt
+        for i in range(3):
+            try:
+                phone_number_answer = None
+                phone_number_answer = await bot.wait_for('message', check=check_valid_phone, timeout=15.0)
+
+                if phone_number_answer is None:
+                    raise continue_counter
+
+                elif phone_number_answer:
+                    return str(phone_number_answer.content)
+
+            except ContinueCounter:
+                continue
+            except asyncio.TimeoutError:
+                await channel.send("You took too long, Goodbye.DEBUG=VALID_PHONE")
                 break
         else:
             await channel.send("Too many attempts, Goodbye.")
@@ -174,16 +199,19 @@ async def create_profile(ctx):
             return
 
         elif check_is_author(msg_reply) and check_for_yes(msg_reply):
-            await channel.send('Whats your phone number? Please reply with just the numbers, no dots or dashes and include the area code.')
+            valid_num = await valid_phone(channel.send("Whats your phone number? Please reply "
+                                                       "with just the numbers, no dots or dashes"
+                                                       " and include the area code."))
 
-            phone_answer = await bot.wait_for('message', check=check_for_phone_number, timeout=30.0)
-            test = await check_for_valid_phone()
-            if test:
-                PROFILES[command_user] = {'phone': phone_answer.content, 'carrier_gateway': ''}
+            if valid_num:
+                verified_num = await check_input(channel.send("Did you type that correctly?"))
+
+            if verified_num:
+                PROFILES[command_user] = {'phone': valid_num.content, 'carrier_gateway': ''}
                 with open(USER_INFO, "w") as new_user_json:
                     json.dump(PROFILES, new_user_json, indent=2)
                 await channel.send('Phone number added!')
-    
+
                 # define an empty int and list to add our values to
                 number = 0
                 carrier_list = ""
