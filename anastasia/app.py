@@ -22,6 +22,8 @@ USER_INFO = r"C:\Projects\Anastasia-bot-master\anastasia\data\user_info.json"
 CARRIER_INFO_FILE = r"C:\Projects\Anastasia-bot-master\anastasia\data\carrier_info.json"
 YES_FILE = r"C:\Projects\Anastasia-bot-master\anastasia\data\yes_word.txt"
 
+TEST_INFO = r"*\anastasia\data"
+
 # record logging info to a file
 logger = logging.getLogger('discord')
 logger.setLevel(logging.DEBUG)
@@ -30,14 +32,23 @@ handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(me
 logger.addHandler(handler)
 
 # open json files
-with open(USER_INFO) as users_info_json:
-    PROFILES = json.load(users_info_json)
+try:
+    with open(USER_INFO) as users_info_json:
+        PROFILES = json.load(users_info_json)
+except FileNotFoundError:
+    print("No user_info file found. Creating a new one..")
+    with open(r"*\anastasia\data\user_info.json", "w") as user_info_json:
+        PROFILES
+else:
+    with open(r"*\anastasia\data\user_info.json", "w") as user_info_json:
+        PROFILES = json.load(user_info_json)
 
 with open(YES_FILE) as f:
     YES_LIST = json.load(f)
 
 with open(CARRIER_INFO_FILE) as f:
     CARRIERS = json.load(f)
+
 CARRIER_LIST = list(CARRIERS)
 MAX_RANGE_LIST = len(CARRIER_LIST)
 RANGE_LIST = [i for i in range(1, MAX_RANGE_LIST)]
@@ -165,7 +176,7 @@ async def create_profile(ctx):
             await channel.send("Too many attempts, Goodbye.")
             return False
 
-    async def valid_phone(prompt) -> str or bool:
+    async def valid_phone(prompt):
         await prompt
         for i in range(3):
             try:
