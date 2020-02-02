@@ -4,7 +4,9 @@ import discord
 import json
 import asyncio
 import datetime
+import io
 
+from pathlib import Path
 from cmc_price import cmc_quote
 from discord.ext import commands
 from dotenv import load_dotenv
@@ -18,30 +20,41 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 # path variables
 # USER_INFO = "/home/pi/anastasia-bot/anastasia/data/user_info.json"
 # CARRIER_INFO_FILE = "/home/pi/anastasia-bot/anastasia/data/carrier_info.json"
-USER_INFO = r"C:\Projects\Anastasia-bot-master\anastasia\data\user_info.json"
+# USER_INFO = r"C:\Projects\Anastasia-bot-master\anastasia\data\user_info.json"
+
+# define paths to config files
+BASE_PATH = Path(__file__).parent
+USER_INFO_PATH = os.path.abspath((BASE_PATH / "../anastasia/data/").resolve())
 CARRIER_INFO_FILE = r"C:\Projects\Anastasia-bot-master\anastasia\data\carrier_info.json"
 YES_FILE = r"C:\Projects\Anastasia-bot-master\anastasia\data\yes_word.txt"
 
-TEST_INFO = r"*\anastasia\data"
+def startup_check(path: str):
+    """ this checks if user_info.json exists
+    if not, creates one. """
+    if os.path.isfile(f"{path}\\user_info.json") and os.access(path, os.R_OK):
+        print("User file found, loading..")
+        return
+    else:
+        print("User data file missing, creating one..")
+        with io.open(os.path.join(path, 'user_info.json'), 'w') as db_file:
+            db_file.write(json.dumps({}))
+
+startup_check(USER_INFO_PATH)  
+# this is the user_info.json path.  We will use this to load into the program
+# as a dict.          
+USER_INFO = f"{USER_INFO_PATH}\\user_info.json"
+
 
 # record logging info to a file
-logger = logging.getLogger('discord')
-logger.setLevel(logging.DEBUG)
-handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
-handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
-logger.addHandler(handler)
+LOGGER = logging.getLogger('discord')
+LOGGER.setLevel(logging.DEBUG)
+HANDLER = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
+HANDLER.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
+LOGGER.addHandler(HANDLER)
 
-# open json files
-try:
-    with open(USER_INFO) as users_info_json:
-        PROFILES = json.load(users_info_json)
-except FileNotFoundError:
-    print("No user_info file found. Creating a new one..")
-    with open(r"*\anastasia\data\user_info.json", "w") as user_info_json:
-        PROFILES
-else:
-    with open(r"*\anastasia\data\user_info.json", "w") as user_info_json:
-        PROFILES = json.load(user_info_json)
+# open all our config files
+with open(USER_INFO) as user_info_json:
+    PROFILES = json.load(user_info_json)
 
 with open(YES_FILE) as f:
     YES_LIST = json.load(f)
@@ -49,6 +62,8 @@ with open(YES_FILE) as f:
 with open(CARRIER_INFO_FILE) as f:
     CARRIERS = json.load(f)
 
+# define the following variables for better understanding of 
+# what they are used for in the functions that follow
 CARRIER_LIST = list(CARRIERS)
 MAX_RANGE_LIST = len(CARRIER_LIST)
 RANGE_LIST = [i for i in range(1, MAX_RANGE_LIST)]
@@ -57,13 +72,16 @@ RANGE_LIST = [i for i in range(1, MAX_RANGE_LIST)]
 bot = commands.Bot(command_prefix='$')
 THE_TIME = datetime.datetime.now()
 
+# prints that the bot has connected to discord and is ready to accept commands
 @bot.event
 async def on_ready():
     print(f'{bot.user.name} has connected to Discord at {THE_TIME}!')
 
+# prints the bot has been disconnected from the server and at what time
 @bot.event
 async def on_disconnect():
     print(f'{bot.user.name} has disconnected from Discord at {THE_TIME}.')
+
 
 @bot.command(name='price', help='responds with current value of a given cryptocurrency')
 async def get_price(ctx, arg):
@@ -138,7 +156,7 @@ async def create_profile(ctx):
 
     def check_valid_phone(msg):
         return check_is_author(msg) and len(msg.content) == 10
-    
+
     def check_is_author(msg):
         return msg.channel == channel and str(msg.author.id) == str(message.author.id)
 
@@ -176,20 +194,22 @@ async def create_profile(ctx):
             await channel.send("Too many attempts, Goodbye.")
             return False
 
+
+
     async def valid_phone(prompt):
         await prompt
         for i in range(3):
             try:
-                phone_number_answer = None
-                phone_number_answer = await bot.wait_for('message', check=check_valid_phone, timeout=15.0)
+                phone_number_answer = await (bot.wait_for('message', timeout=30.0))
 
-                if phone_number_answer is None:
+                if check_valid_phone(phone_number_answer) is False:
                     raise continue_counter
 
-                elif phone_number_answer:
-                    return str(phone_number_answer.content)
+                if check_valid_phone(phone_number_answer):
+                    return phone_number_answer
 
             except ContinueCounter:
+                await channel.send("Invalid entry. Type your phone number with no dashes or spaces.")
                 continue
             except asyncio.TimeoutError:
                 await channel.send("You took too long, Goodbye.DEBUG=VALID_PHONE")
@@ -197,6 +217,8 @@ async def create_profile(ctx):
         else:
             await channel.send("Too many attempts, Goodbye.")
             return False
+
+
 
 
     command_user = str(message.author.id)
@@ -234,9 +256,10 @@ async def create_profile(ctx):
                     number += 1
                     carrier_list += "{}.{}\n".format(number, key)
                 # adds our numbered list to the embed object.  Sends object to channel
-                embed.add_field(name="Pick a carrier below. Simply type the number!", value=carrier_list, inline=True)
+                embed.add_field(name="Pick a carrier below. Simply type the "
+                                     "number!", value=carrier_list, inline=True)
                 await channel.send(embed=embed)
-                
+
                 # this check will make sure to only create carrier_answer if the users response
                 # is a valid choice
                 def check_for_carrier(m):
@@ -247,10 +270,13 @@ async def create_profile(ctx):
                 # checks if carrier answer exists
                 if carrier_answer.content is not None and len(carrier_answer.content) <= 3:
                     PROFILES[command_user]['carrier_gateway'] += CARRIERS["{}".format(CARRIER_LIST[int(carrier_answer.content)-1])]
+
                     with open(USER_INFO, "w") as user_json_file:
                         json.dump(PROFILES, user_json_file, indent=2)
-                    await channel.send('Carrier added to your profile! You are now ready to receive a text message when mentioned.')
-            
+
+                    await channel.send('Carrier added to your profile! You are now ready '
+                                       'to receive a text message when mentioned.')
+
             else:
                 await channel.send("Profile setup terminated.")
 
