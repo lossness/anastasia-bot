@@ -172,33 +172,9 @@ async def create_profile(ctx):
 
     continue_counter = ContinueCounter
 
-    async def check_input(prompt) -> bool:
-        await prompt
-        for i in range(3):
-            try:
-                reply = None
-                reply = (await bot.wait_for(
-                    'message', check=check_for_yes, timeout=15.0))
-
-                if check_is_author(reply):
-                    return True
-                elif reply is None:
-                    raise continue_counter
-
-            except ContinueCounter:
-                continue
-            except asyncio.TimeoutError:
-                await channel.send("You took too long, Goodbye.DEBUG=CHECK_INPUT")
-                break
-        else:
-            await channel.send("Too many attempts, Goodbye.")
-            return False
-
-
-
     async def valid_phone(prompt):
         await prompt
-        for i in range(3):
+        for i in range(6):
             try:
                 phone_number_answer = await (bot.wait_for('message', timeout=30.0))
 
@@ -206,19 +182,23 @@ async def create_profile(ctx):
                     raise continue_counter
 
                 if check_valid_phone(phone_number_answer):
-                    return phone_number_answer
+                    await channel.send("{}. Is this correct?".format(phone_number_answer.content))
+                    confirm_correct = await bot.wait_for('message', timeout=10.0)
+                    if check_for_yes(confirm_correct) is False:
+                        raise continue_counter
+                    if check_for_yes(confirm_correct):
+                        return phone_number_answer
 
             except ContinueCounter:
-                await channel.send("Invalid entry. Type your phone number with no dashes or spaces.")
+                await channel.send("Invalid entry. Type your phone number with "
+                                   "no dashes or spaces. {}/6 Attempts.".format(i+1))
                 continue
             except asyncio.TimeoutError:
                 await channel.send("You took too long, Goodbye.DEBUG=VALID_PHONE")
                 break
         else:
-            await channel.send("Too many attempts, Goodbye.")
+            await channel.send("Goodbye.")
             return False
-
-
 
 
     command_user = str(message.author.id)
@@ -232,14 +212,12 @@ async def create_profile(ctx):
             return
 
         elif check_is_author(msg_reply) and check_for_yes(msg_reply):
+            valid_num = None
             valid_num = await valid_phone(channel.send("Whats your phone number? Please reply "
                                                        "with just the numbers, no dots or dashes"
                                                        " and include the area code."))
 
-            if valid_num:
-                verified_num = await check_input(channel.send("Did you type that correctly?"))
-
-            if verified_num:
+            if valid_num is not False:
                 PROFILES[command_user] = {'phone': valid_num.content, 'carrier_gateway': ''}
                 with open(USER_INFO, "w") as new_user_json:
                     json.dump(PROFILES, new_user_json, indent=2)
