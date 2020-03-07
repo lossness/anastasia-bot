@@ -1,5 +1,5 @@
 {
     "python.pythonPath": "C:\\Users\\boon\\Anaconda3\\envs\\Anastasia-bot-master\\python.exe",
     "python.envFile": "${C:\\Projects\\Anastasia-bot-master}/.env",
-    "python.formatting.provider": "black"
+    "python.formatting.provider": "yapf"
 }

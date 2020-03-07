@@ -5,19 +5,18 @@ import json
 import asyncio
 
 from discord.ext import commands
-from pathlib import Path
+
 
 # define paths to config files
-BASE_PATH = Path(__file__).parent
-USER_INFO_PATH = os.path.abspath((BASE_PATH / "../anastasia/data/").resolve())
-CARRIER_INFO_FILE = r"C:\Projects\Anastasia-self.bot-master\anastasia\data\carrier_info.json"
-YES_FILE = r"C:\Projects\Anastasia-self.bot-master\anastasia\data\yes_word.txt"
+USER_INFO_PATH = os.path.abspath("./anastasia/data/")
+CARRIER_INFO_FILE = "./anastasia/data/carrier_info.json"
+YES_FILE = "./anastasia/data/yes_word.txt"
 
 
 def startup_check(path: str):
     """ this checks if user_info.json exists
     if not, creates one. """
-    if os.path.isfile(f"{path}\\user_info.json") and os.access(path, os.R_OK):
+    if os.path.isfile(f"{path}/user_info.json") and os.access(path, os.R_OK):
         print("User file found, loading..")
         return
     else:
@@ -28,7 +27,7 @@ def startup_check(path: str):
 startup_check(USER_INFO_PATH)  
 # this is the user_info.json path.  We will use this to load into the program
 # as a dict.          
-USER_INFO = f"{USER_INFO_PATH}\\user_info.json"
+USER_INFO = f"{USER_INFO_PATH}/user_info.json"
 
 
 # open all our config files
@@ -48,7 +47,7 @@ MAX_RANGE_LIST = len(CARRIER_LIST)
 RANGE_LIST = [i for i in range(1, MAX_RANGE_LIST)]
 
 
-class ProfileSetup(commands.Cog):
+class Carrier(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
@@ -166,4 +165,4 @@ class ProfileSetup(commands.Cog):
             await channel.send("You took too long to reply!")
 
 def setup(bot):
-    bot.add_cog(ProfileSetup(bot))
+    bot.add_cog(Carrier(bot))
