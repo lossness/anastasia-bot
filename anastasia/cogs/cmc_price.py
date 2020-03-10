@@ -9,9 +9,14 @@ from requests import Session
 from requests.exceptions import ConnectionError, Timeout, TooManyRedirects
 
 
+# Load in secret key as a variable from .env file
+load_dotenv()
+TOKEN = os.getenv("CMC_TOKEN")
+
 class Crypto(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+
     # Load in secret key as a variable from .env file
     load_dotenv()
     TOKEN = os.getenv("CMC_TOKEN")
@@ -83,10 +88,10 @@ class Crypto(commands.Cog):
                     chosen_word = random.choice(list(reader))
                     return "Thats not a cryptocurrency, you {}.".format(chosen_word[0])
 
-        @commands.command()
-        async def price(self, ctx, arg):
-            response = cmc_quote(arg)
-            await ctx.send(response)
+    @commands.command()
+    async def price(self, ctx, arg):
+        response = self.cmc_quote(arg)
+        await ctx.send(response)
 
 def setup(bot):
     bot.add_cog(Crypto(bot))

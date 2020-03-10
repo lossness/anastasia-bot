@@ -11,3 +11,6 @@ anastasia/data/sms_info.py
 anastasia/data/steam_games.json
 anastasia/data/user_info.json
 anastasia/data/777.json
+anastasia/cogs/utils/nmtchatbot/model/translate.ckpt-56000.data-00000-of-00001
+anastasia/cogs/utils/nmtchatbot/model/translate.ckpt-56000.index
+anastasia/cogs/utils/nmtchatbot/model/translate.ckpt-56000.meta

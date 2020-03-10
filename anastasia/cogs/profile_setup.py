@@ -6,45 +6,7 @@ import asyncio
 
 from discord.ext import commands
 
-
-# define paths to config files
-USER_INFO_PATH = os.path.abspath("./anastasia/data/")
-CARRIER_INFO_FILE = "./anastasia/data/carrier_info.json"
-YES_FILE = "./anastasia/data/yes_word.txt"
-
-
-def startup_check(path: str):
-    """ this checks if user_info.json exists
-    if not, creates one. """
-    if os.path.isfile(f"{path}/user_info.json") and os.access(path, os.R_OK):
-        print("User file found, loading..")
-        return
-    else:
-        print("User data file missing, creating one..")
-        with io.open(os.path.join(path, 'user_info.json'), 'w') as db_file:
-            db_file.write(json.dumps({}))
-
-startup_check(USER_INFO_PATH)  
-# this is the user_info.json path.  We will use this to load into the program
-# as a dict.          
-USER_INFO = f"{USER_INFO_PATH}/user_info.json"
-
-
-# open all our config files
-with open(USER_INFO) as user_info_json:
-    PROFILES = json.load(user_info_json)
-
-with open(YES_FILE) as f:
-    YES_LIST = json.load(f)
-
-with open(CARRIER_INFO_FILE) as f:
-    CARRIERS = json.load(f)
-
-# define the following variables for better understanding of 
-# what they are used for in the functions that follow
-CARRIER_LIST = list(CARRIERS)
-MAX_RANGE_LIST = len(CARRIER_LIST)
-RANGE_LIST = [i for i in range(1, MAX_RANGE_LIST)]
+from .utils import file_paths
 
 
 class Carrier(commands.Cog):
@@ -64,7 +26,7 @@ class Carrier(commands.Cog):
             return msg.channel == channel and str(msg.author.id) == str(message.author.id)
 
         def check_for_yes(msg):
-            yes_options = YES_LIST
+            yes_options = file_paths.YES_LIST
             return bool(any(t in msg.content.lower() for t in yes_options))
 
         def check_for_no(msg):
@@ -121,9 +83,9 @@ class Carrier(commands.Cog):
                                                         " and include the area code."))
 
                 if valid_num is not False:
-                    PROFILES[command_user] = {'phone': valid_num.content, 'carrier_gateway': ''}
-                    with open(USER_INFO, "w") as new_user_json:
-                        json.dump(PROFILES, new_user_json, indent=2)
+                    file_paths.PROFILES[command_user] = {'phone': valid_num.content, 'carrier_gateway': ''}
+                    with open(file_paths.USER_INFO, "w") as new_user_json:
+                        json.dump(file_paths.PROFILES, new_user_json, indent=2)
                     await channel.send('Phone number added!')
 
                     # define an empty int and list to add our values to
@@ -133,7 +95,7 @@ class Carrier(commands.Cog):
                     embed = discord.Embed()
 
                     # attaches a number to each carrier from our list
-                    for key in CARRIERS.keys():
+                    for key in file_paths.CARRIERS.keys():
                         number += 1
                         carrier_list += "{}.{}\n".format(number, key)
                     # adds our numbered list to the embed object.  Sends object to channel
@@ -144,16 +106,16 @@ class Carrier(commands.Cog):
                     # this check will make sure to only create carrier_answer if the users response
                     # is a valid choice
                     def check_for_carrier(m):
-                        return m.content in str(RANGE_LIST) and m.channel == channel
+                        return m.content in str(file_paths.RANGE_LIST) and m.channel == channel
 
                     carrier_answer = await self.bot.wait_for('message', check=check_for_carrier, timeout=30)
 
                     # checks if carrier answer exists
                     if carrier_answer.content is not None and len(carrier_answer.content) <= 3:
-                        PROFILES[command_user]['carrier_gateway'] += CARRIERS["{}".format(CARRIER_LIST[int(carrier_answer.content)-1])]
+                        file_paths.PROFILES[command_user]['carrier_gateway'] += file_paths.CARRIERS["{}".format(file_paths.CARRIER_LIST[int(carrier_answer.content)-1])]
 
-                        with open(USER_INFO, "w") as user_json_file:
-                            json.dump(PROFILES, user_json_file, indent=2)
+                        with open(file_paths.USER_INFO, "w") as user_json_file:
+                            json.dump(file_paths.PROFILES, user_json_file, indent=2)
 
                         await channel.send('Carrier added to your profile! You are now ready '
                                         'to receive a text message when mentioned.')

@@ -2,7 +2,7 @@ import asyncio
 
 from discord.ext import commands
 
-from utils import config, sms_config
+from .utils import file_paths, sms_config
 
 
 class SmsOnMention(commands.Cog):
@@ -14,17 +14,20 @@ class SmsOnMention(commands.Cog):
         # required commands for on message
         channel = message.channel
         await self.bot.process_commands(message)
-        if message.author == self.bot.user:
+
+        if message.author == self.bot.user or message.author.bot is True or message.clean_content.startswith("pls"):
             return
+
+
         # Multiple checks that are run agaisnt user replies
         def check_is_author(msg):
             return msg.channel == channel and str(msg.author.id) == str(message.author.id)
 
         def check_for_profile(msg):
-            return bool(any(t in str(msg.raw_mentions) for t in config.PROFILES.keys()))
+            return bool(any(t in str(msg.raw_mentions) for t in file_paths.PROFILES.keys()))
 
         def check_for_yes(user_reply):
-            yes_options = config.YES_LIST
+            yes_options = file_paths.YES_LIST
             return (bool(any(t in user_reply.content.lower() for t in yes_options and
                             str(user_reply.author.id == str(message.author.id)))))
 
@@ -53,9 +56,9 @@ class SmsOnMention(commands.Cog):
                 elif check_for_profile(message) and check_is_author(message) and msg_reply is not None:
                     if check_for_yes(msg_reply):
                         for user in mentioned_users_int:
-                            if config.PROFILES[str(user)]['carrier_gateway'] is not "":
-                                (sms_config.send_text(config.PROFILES[str(user)]['phone'],
-                                        config.PROFILES[str(user)]['carrier_gateway'],
+                            if file_paths.PROFILES[str(user)]['carrier_gateway'] is not "":
+                                (sms_config.send_text(file_paths.PROFILES[str(user)]['phone'],
+                                        file_paths.PROFILES[str(user)]['carrier_gateway'],
                                         message.clean_content))
                                 await channel.send('Sent text!')
                                 return
