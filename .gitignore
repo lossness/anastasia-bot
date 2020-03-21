@@ -53,3 +53,6 @@ data/price_data/week_dg_ups.json
 data/price_data/week_dg_video-card.json
 data/price_data/week_dg_wired-network-card.json
 data/price_data/week_dg_wireless-network-card.json
+nmtchatbot/model/translate.ckpt-56000.data-00000-of-00001
+nmtchatbot/model/translate.ckpt-56000.index
+nmtchatbot/model/translate.ckpt-56000.meta

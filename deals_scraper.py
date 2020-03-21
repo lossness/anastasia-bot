@@ -39,7 +39,6 @@ PRODUCT_CATEGORIES = [
 
 
 def collect_data(url):
-    
     DRIVER.get(url)
     time.sleep(5)
     counter = 0
@@ -61,6 +60,10 @@ def collect_data(url):
                 counter += 1
         except IndexError:
             continue
+        finally:
+            print("done")
+            connex.close()
+
 
 collect_data(DAY_URL)
 collect_data(WEEK_URL)
@@ -87,7 +90,7 @@ def cleanText(directory, file_name):
     except FileNotFoundError as error:
         print(f"File not found. {error}")
     except JSONDecodeError as jsonerror:
-        print(error + f"{file_name} contains no data..")
+        print(f"{jsonerror} has occured. This typically means the file contains no data.")
 
 # applies the function cleanText to every file in the price_data directory. 
 for price_file in tqdm(os.listdir(config.PRICE_DATA_DIR)):
