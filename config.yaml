@@ -1,4 +1,0 @@
-files:
-# put locations of your files here
-    carrier_info: "./anastasia/data/carrier_info.json"
-    yes_file: "./anastasia/data/yes_word.txt"

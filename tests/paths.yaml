@@ -1,0 +1,9 @@
+files:
+# put locations of your files here
+    carrier_info: "./anastasia/data/carrier_info.json"
+    yes_file: "./anastasia/data/yes_word.txt"
+    user_info: "./anastasia/data/user_info.json"
+
+locations:
+    price_data_location: "./anastasia/data/price_data/"
+
