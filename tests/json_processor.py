@@ -2,19 +2,26 @@ import json
 import config
 import os
 import time
+import sqlite3
 import pandas as pd
+import datetime
 
-from json import JSONDecodeError
+from json import JSONDecodeError, JSONEncoder
 from pathlib import Path
 from tqdm import tqdm
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from bs4 import BeautifulSoup
+from progress.bar import Bar
+
 
 
 # LAST 24HR PRICE DROPS AND LAST 7 DAYS PRICE DROPS URLS
-DAY_URL = "https://pcpartpicker.com/products/pricedrop/day/"
-WEEK_URL = "https://pcpartpicker.com/products/pricedrop/week/"
+DAY_URL = "http://pcpartpicker.com/products/pricedrop/day/"
+WEEK_URL = "http://pcpartpicker.com/products/pricedrop/week/"
+
+def JsonPath(timescale):
+    return config.PATH.joinpath('data', 'price_data', f"{timescale}_deals.json")
 
 # Opens a chrome instance with debugging enabled to use selenium without chromedriver
 os.startfile(r"C:\Projects\weedmaps_review_bot\data\chrome_shortcut.lnk")
@@ -39,49 +46,138 @@ PRODUCT_CATEGORIES = [
 def collect_data(url):
     DRIVER.get(url)
     time.sleep(5)
-    counter = 0
     soup = BeautifulSoup(DRIVER.page_source, 'lxml')
     for category in PRODUCT_CATEGORIES:
         try:
             table = soup.find_all('div', attrs={'id': f'{category}'})[0]
             df = pd.read_html(str(table))
+
             if url == DAY_URL:
-                df.to_sql(f'{os.listdir(config.PRICE_DATA_DIR)}_{category}.json',
-                              orient='records', date_format='iso')
+                daily_list = df[0].to_dict(orient='records')
+                cleanText(daily_list, "daily", category.replace("dg_", ""))
+
             elif url == WEEK_URL:
-                df.to_json(f'{os.listdir(config.PRICE_DATA_DIR)}_{category}.json',
-                              orient='records', date_format='iso')
-            counter += 1
-        except IndexError:
+                weekly_list = df[0].to_dict(orient='records')
+                cleanText(weekly_list, "weekly", category.replace("dg_", ""))
+
+        except IndexError as index_error:
+            print(f"An error has occured: {index_error}")
+            print(f"No deals for {category}")
             continue
+
+# subclass JSONEncoder
+class DateTimeEncoder(JSONEncoder):
+    # override the default method
+    def default(self, obj):
+        if isinstance(obj, (datetime.date, datetime.datetime)):
+            return obj.isoformat()
+
+def cleanText(json_object, timescale, cat) -> list:
+    try:
+        with open(JsonPath(timescale), "a") as outfile:
+            for json_dict in json_object:
+                for part_info in json_dict.items():
+                    # Remove keys that we do not want in the sqlite database
+                    part_info.pop('Unnamed: 7', None)
+                    part_info.pop('Promo', None)
+                    # Clean up the values of each special
+                    part_info['Current'] = part_info['Current'].replace('Current', '')
+                    part_info['Drop'] = part_info['Drop'].replace('Drop', '')
+                    part_info['Item'] = part_info['Item'].replace('Item ', '')
+                    part_info['Previous'] = part_info['Previous'].replace('Previous', '')
+                    part_info['Save'] = part_info['Save'].replace('Save', '')
+                    part_info['Where'] = part_info['Where'].replace('Where', '')
+                    part_info['Date'] = datetime.datetime.now()
+                    part_info['Category'] = cat
+            json.dump(json_object, outfile, indent=2, sort_keys=True, cls=DateTimeEncoder)
+            print(f"    {cat} dumped.")
+
+    except JSONDecodeError as jsonerror:
+        print(jsonerror + f"{json_object} contains no data..")
+
+
+# def checkDate(timescale):
+#     with open(JsonPath(timescale), 'r') as fp:
+#         json_file = json.load(fp)
+#         for part_id, part_info in json_file.items():
+#             for key in part_info:
+#                 if part_info['Date'][:10] == str(datetime.datetime.now())
+
+
 
 collect_data(DAY_URL)
 collect_data(WEEK_URL)
+DRIVER.quit()
 
 
-def cleanText(directory, file_name):
-    try:
-        with open(f"{directory}/{file_name}") as f:
-            json_file = json.load(f)
-            for element in json_file:
-                # Remove keys that we do not want in the sqlite database
-                element.pop('Unnamed: 7', None)
-                element.pop('Promo', None)
-                # Clean up the values of each special
-                element['Current'] = element['Current'].replace('Current', '')
-                element['Drop'] = element['Drop'].replace('Drop', '')
-                element['Item'] = element['Item'].replace('Item ', '')
-                element['Previous'] = element['Previous'].replace('Previous', '')
-                element['Save'] = element['Save'].replace('Save', '')
-                element['Where'] = element['Where'].replace('Where', '')
-            with open(f"{directory}/{file_name}", 'w') as outfile:
-                json.dump(json_file, outfile)
 
-    except FileNotFoundError as error:
-        print(f"File not found. {error}")
-    except JSONDecodeError as jsonerror:
-        print(error + f"{file_name} contains no data..")
 
-# applies the function cleanText to every file in the price_data directory. 
-for price_file in tqdm(os.listdir(config.PRICE_DATA_DIR)):
-    cleanText(config.PRICE_DATA_DIR, price_file)
+
+
+# def collect_data(url):
+#     DRIVER.get(url)
+#     time.sleep(5)
+#     counter = 0
+#     soup = BeautifulSoup(DRIVER.page_source, 'lxml')
+#     for category in tqdm(PRODUCT_CATEGORIES):
+#         try:
+#             table = soup.find_all('div', attrs={'id': f'{category}'})[0]
+#             df = pd.read_html(str(table))
+
+#             if url == DAY_URL:
+#                 day_json = df[0].to_dict()
+#                 cleanText(day_json, category, 'daily_deals.db')
+
+#             elif url == WEEK_URL:
+#                 week_json = df[0].to_dict()
+#                 cleanText(week_json, category, 'weekly_deals.db')
+
+#             counter += 1
+#         except IndexError as index_error:
+#             print(f"An error has occured: {index_error}")
+#             continue
+#         finally:
+#             DRIVER.quit()
+
+
+# def cleanText(json_object, cat, db_name):
+#     try:
+#         db_name_one = db_name
+#         conn = sqlite3.connect(db_name_one)
+#         c = conn.cursor()
+#         print("Successfully connected to SQLite")
+#         table_name = cat.replace("dg_", "")
+#         create_table_query = f'''CREATE TABLE {table_name} (
+#                                   Item TEXT PRIMARY KEY NOT NULL,
+#                                   Previous TEXT NOT NULL,
+#                                   Current TEXT NOT NULL,
+#                                   Drop TEXT NOT NULL,
+#                                   Save TEXT NOT NULL,
+#                                   Where TEXT NOT NULL,
+#                                   Date datetime);'''
+#         c.execute(create_table_query)
+#         print("SQLite table created")
+#         for part in json_object:
+#             # Remove keys that we do not want in the sqlite database
+#             part.pop('Unnamed: 7', None)
+#             part.pop('Promo', None)
+#             # Clean up the values of each special
+#             part['Current'] = part['Current'].replace('Current', '')
+#             part['Drop'] = part['Drop'].replace('Drop', '')
+#             part['Item'] = part['Item'].replace('Item ', '')
+#             part['Previous'] = part['Previous'].replace('Previous', '')
+#             part['Save'] = part['Save'].replace('Save', '')
+#             part['Where'] = part['Where'].replace('Where', '')
+#             table_name = cat.replace("dg_", "")
+#             create_values = f"insert into {table_name} values (?,?,?,?,?,?)"
+#             c.execute(create_values, json.dumps(json_object, sort_keys=True))
+#     except JSONDecodeError as jsonerror:
+#         print(jsonerror + f"{json_object} contains no data..")
+
+#     finally:
+#         conn.close()
+
+
+# collect_data(DAY_URL)
+# collect_data(WEEK_URL)
+

@@ -56,3 +56,10 @@ data/price_data/week_dg_wireless-network-card.json
 nmtchatbot/model/translate.ckpt-56000.data-00000-of-00001
 nmtchatbot/model/translate.ckpt-56000.index
 nmtchatbot/model/translate.ckpt-56000.meta
+data/price_data/daily_deals.csv
+data/price_data/weekly_deals.csv
+tests/processor_experimental.py
+tests/deals_scraper.py
+tests/json_path_test.py
+tests/json_processor.py
+tests/json_processor.py
