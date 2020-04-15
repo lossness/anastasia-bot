@@ -15,15 +15,6 @@ import config
 DAY_URL = "http://pcpartpicker.com/products/pricedrop/day/"
 WEEK_URL = "http://pcpartpicker.com/products/pricedrop/week/"
 
-# Initialize selenium webdriver and attaches to chrome.exe using debugger port
-CHROME_OPTIONS = Options()
-CHROME_OPTIONS.debugger_address = "127.0.0.1:9222"
-DRIVER = webdriver.Chrome(
-    options=CHROME_OPTIONS,
-    executable_path=r"C:\Utility\Browserdrivers\chromedriver.exe",
-)
-
-
 # function to pass csv file paths to the functions below
 def csv_path(timescale):
     return config.PATH.joinpath("data", "price_data", f"{timescale}_deals.csv")
@@ -58,9 +49,9 @@ RESULTS_WEEKLY_DF = pd.DataFrame()
 
 
 def collect_data(url):
-    DRIVER.get(url)
+    driver.get(url)
     time.sleep(5)
-    soup = BeautifulSoup(DRIVER.page_source, "lxml")
+    soup = BeautifulSoup(driver.page_source, "lxml")
 
     for category in progressbar(PRODUCT_CATEGORIES):
         try:
@@ -116,24 +107,39 @@ DAILY_DF = pd.read_csv(csv_path("daily"), usecols=["Date"])
 WEEKLY_DF = pd.read_csv(csv_path("weekly"), usecols=["Date"])
 NOW = datetime.datetime.now()
 
+class Scraper():
 
-def check_date(collect_function, dataframe, url):
-    dataframe_dict = dataframe.to_dict()
-    print("\nChecking if the data has been updated since yesterday")
-    for values in progressbar(dataframe_dict.values()):
-        for value in values.values():
-            if value.startswith(str(NOW)[:10]):
-                print("\nData up to date!")
-                break
+    @staticmethod
+    def check_date(collect_function, dataframe, url):
+        dataframe_dict = dataframe.to_dict()
+        print("\nChecking if the data has been updated since yesterday")
+        status = ""
+        for values in progressbar(dataframe_dict.values()):
+            for value in values.values():
+                if value.startswith(str(NOW)[:10]):
+                    status = "ok"
+                    print("\nData up to date!")
+                    break
+        if status != "ok":
+            try:
+                # Opens a chrome window with debugging enabled to use selenium without chromedriver
+                print("\nData out of date, intilizing fresh data scraper..")
+                os.startfile(r"C:\Projects\weedmaps_review_bot\data\chrome_shortcut.lnk")
+                time.sleep(10)
+                chrome_options = Options()
+                chrome_options.debugger_address = "127.0.0.1:9222"
+                global driver
+                driver = webdriver.Chrome(
+                    options=chrome_options,
+                    executable_path=r"C:\Utility\Browserdrivers\chromedriver.exe",
+                )
+                collect_function(url)
+            finally:
+                driver.close()
+                driver.quit()
+        else:
+            return
 
-    # Opens a chrome window with debugging enabled to use selenium without chromedriver
-    print("\nData out of date, intilizing fresh data scraper..")
-    os.startfile(r"C:\Projects\weedmaps_review_bot\data\chrome_shortcut.lnk")
-    time.sleep(10)
-    collect_function(url)
 
-
-check_date(collect_data, DAILY_DF, DAY_URL)
-check_date(collect_data, WEEKLY_DF, WEEK_URL)
-DRIVER.close()
-DRIVER.quit()
+Scraper.check_date(collect_data, DAILY_DF, DAY_URL)
+Scraper.check_date(collect_data, WEEKLY_DF, WEEK_URL)
